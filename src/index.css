@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/* Mobile-first base fixes: pas de scroll horizontal accidentel, hauteur
+   d'écran fiable sur mobile (barres d'adresse dynamiques iOS/Android),
+   et on masque les scrollbars horizontales des rangées de "chips". */
+html, body, #root {
+  height: 100%;
+  overscroll-behavior-y: none;
+}
+body {
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Empêche iOS de zoomer automatiquement sur les <textarea>/<input> en focus
+   (le zoom se déclenche si font-size < 16px) tout en gardant un texte de
+   taille raisonnable visuellement grâce au design déjà en text-sm ailleurs. */
+textarea, input, select {
+  font-size: 16px;
+}
+@media (min-width: 640px) {
+  textarea, input, select {
+    font-size: inherit;
+  }
+}
+
+/* Fait suivre les classes dark:* à la classe .dark posée sur <html> par
+   App.tsx (toggle manuel + localStorage), au lieu de suivre uniquement les
+   préférences système (comportement par défaut de Tailwind v4). Sans cette
+   ligne, le bouton "Mode Sombre/Clair" du Header n'a aucun effet visuel. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Palette de marque Déclic — recalée sur les couleurs exactes du logo
+   (bleu #0030B6 et accent turquoise #08F1D5).
+   On surcharge la palette "indigo" native de Tailwind : toutes les classes
+   indigo-* déjà utilisées dans l'app basculent automatiquement sur le bleu Déclic. */
+@theme {
+  --color-indigo-50: #F0F4FF;
+  --color-indigo-100: #E0E9FF;
+  --color-indigo-200: #BDCEFF;
+  --color-indigo-300: #85A5FF;
+  --color-indigo-400: #3369FF;
+  --color-indigo-500: #003FEB;
+  --color-indigo-600: #0030B6;
+  --color-indigo-700: #002794;
+  --color-indigo-800: #032172;
+  --color-indigo-900: #051B57;
+  --color-indigo-950: #040F2F;
+
+  /* Accent turquoise du logo, disponible via les classes teal-* */
+  --color-teal-50: #E9FFFC;
+  --color-teal-100: #C9FFF6;
+  --color-teal-200: #93FFED;
+  --color-teal-300: #4FFBE0;
+  --color-teal-400: #08F1D5;
+  --color-teal-500: #00D6BC;
+  --color-teal-600: #00AC98;
+  --color-teal-700: #00867A;
+  --color-teal-800: #036A63;
+  --color-teal-900: #075851;
+  --color-teal-950: #01332F;
+
+  /* Les badges/encarts "info" utilisent sky-* : recalé sur le même turquoise
+     que le logo pour que tous les accents secondaires de l'app matchent la charte. */
+  --color-sky-50: #ECFEFC;
+  --color-sky-100: #CFFCF7;
+  --color-sky-200: #9DFBF0;
+  --color-sky-300: #62F9E8;
+  --color-sky-400: #20F8DF;
+  --color-sky-500: #07F2D7;
+  --color-sky-600: #0AC2AC;
+  --color-sky-700: #0C9787;
+  --color-sky-800: #0D7367;
+  --color-sky-900: #0C554C;
+  --color-sky-950: #08302B;
+}
