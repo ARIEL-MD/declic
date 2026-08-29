@@ -1,0 +1,6 @@
+{
+  "name": "Déclic — Examens & Concours (BEPC & BAC)",
+  "description": "Comprendre. Enfin. Plateforme éducative d'excellence de la 6e à la Terminale couvrant toutes les matières (Mathématiques, Physique-Chimie, SVT, Anglais, Allemand, Espagnol, Philosophie, Français, Histoire-Géographie) avec moteur de Recherche de Cours & Savoir Sûr garanti sans erreur, résolutions d'exercices pas à pas in extenso, OCR et correcteur de devoirs noté sur 20.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
