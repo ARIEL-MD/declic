@@ -49,6 +49,11 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTool, setActiveTool] = useState<ComposerTool | null>(null);
   const [lastSubject, setLastSubject] = useState('');
+  const [academicProfile, setAcademicProfile] = useState<{
+    serie?: string;
+    serieLabel?: string;
+    level?: string;
+  }>({});
 
   const feedEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -83,6 +88,11 @@ export default function App() {
     const matchedFasc =
       DEFAULT_FASCICULES.find((f) => f.id === detection.recommendedFasciculeId) || DEFAULT_FASCICULES[0];
     setSelectedFascicule(matchedFasc);
+    setAcademicProfile({
+      serie: serie || detection.serie,
+      serieLabel: serieLabel || detection.serieLabel,
+      level: detection.level,
+    });
 
     try {
       const res = await fetch('/api/analyze-exercise', {
@@ -204,7 +214,11 @@ export default function App() {
                   )}
                   {turn.tool === 'grader' && (
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl rounded-tl-lg shadow-sm overflow-hidden">
-                      <HomeworkGraderView currentFascicule={selectedFascicule} currentSubject={lastSubject} />
+                      <HomeworkGraderView
+                        currentFascicule={selectedFascicule}
+                        currentSubject={lastSubject}
+                        academicProfile={academicProfile}
+                      />
                     </div>
                   )}
                   {turn.tool === 'search' && (

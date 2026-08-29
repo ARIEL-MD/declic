@@ -16,17 +16,20 @@ import {
   Trash2,
   PenTool
 } from 'lucide-react';
-import { StudentCorrectionResult, Fascicule } from '../types';
+import { StudentCorrectionResult, Fascicule, AcademicSerie } from '../types';
 import { ScientificWhiteboard } from './ScientificWhiteboard';
+import { ACADEMIC_SERIES_OPTIONS } from '../data/academicSeries';
 
 interface HomeworkGraderViewProps {
   currentFascicule: Fascicule;
   currentSubject: string;
+  academicProfile?: { serie?: string; serieLabel?: string; level?: string };
 }
 
 export const HomeworkGraderView: React.FC<HomeworkGraderViewProps> = ({
   currentFascicule,
   currentSubject,
+  academicProfile,
 }) => {
   const [submissionText, setSubmissionText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -35,6 +38,15 @@ export const HomeworkGraderView: React.FC<HomeworkGraderViewProps> = ({
   const [isScanningOCR, setIsScanningOCR] = useState(false);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Série pré-remplie par le profil détecté lors d'une analyse précédente,
+  // mais TOUJOURS modifiable par l'élève : essentiel pour que la correction
+  // applique la bonne méthode (ex: ne jamais juger une copie de 6e avec des
+  // exigences de Terminale C, ni l'inverse).
+  const [selectedSerie, setSelectedSerie] = useState<AcademicSerie>(
+    (academicProfile?.serie as AcademicSerie) || 'auto'
+  );
+  const selectedSerieOption = ACADEMIC_SERIES_OPTIONS.find((s) => s.id === selectedSerie);
 
   const disciplineLabel = currentFascicule.disciplineLabel || "";
   const isScientificDiscipline = /math[ée]matiques?|physique|chimie|svt/i.test(disciplineLabel);
@@ -96,6 +108,8 @@ export const HomeworkGraderView: React.FC<HomeworkGraderViewProps> = ({
           studentSubmission: submissionText,
           exerciseType: defaultExerciseType,
           fasciculeRules: currentFascicule.methodologyOverview,
+          serie: selectedSerie,
+          serieLabel: selectedSerieOption?.label,
         }),
       });
 
@@ -203,6 +217,27 @@ export const HomeworkGraderView: React.FC<HomeworkGraderViewProps> = ({
 
       {/* Input Form */}
       <form onSubmit={handleGrade} className="space-y-4">
+        <div className="space-y-1.5">
+          <label htmlFor="grader-serie-select" className="text-xs font-semibold text-slate-800 dark:text-slate-300">
+            Votre série / niveau (essentiel pour appliquer la bonne méthode) :
+          </label>
+          <select
+            id="grader-serie-select"
+            value={selectedSerie}
+            onChange={(e) => setSelectedSerie(e.target.value as AcademicSerie)}
+            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl p-2.5 text-xs sm:text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+          >
+            {ACADEMIC_SERIES_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          {selectedSerie !== 'auto' && selectedSerieOption && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">{selectedSerieOption.desc}</p>
+          )}
+        </div>
+
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs font-semibold text-slate-800 dark:text-slate-300">
             <span>Votre Brouillon, Introduction ou Devoir Complet :</span>

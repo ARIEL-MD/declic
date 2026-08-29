@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sparkles, User, RefreshCw, X } from 'lucide-react';
+import { MathText } from './MathText';
 
 export const UserBubble: React.FC<{ text: string }> = ({ text }) => (
   <div className="flex justify-end gap-2 sm:gap-2.5 px-3 sm:px-0">
@@ -61,7 +62,7 @@ export const AssistantCard: React.FC<{
 export const AssistantTextBubble: React.FC<{ text: string }> = ({ text }) => (
   <AssistantCard>
     <p className="px-4 py-3 text-sm leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap">
-      {text}
+      <MathText text={text} />
     </p>
   </AssistantCard>
 );

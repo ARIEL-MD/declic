@@ -1588,6 +1588,8 @@ app.post("/api/correct-homework", globalAiRateLimiter, aiRouteRateLimiter, async
       studentSubmission,
       exerciseType = "Dissertation",
       fasciculeRules = "",
+      serie,
+      serieLabel,
     } = req.body;
 
     if (!studentSubmission || !studentSubmission.trim()) {
@@ -1659,7 +1661,18 @@ Tu ne dois JAMAIS inventer une donnée, une formule, un résultat ou une correct
    Avant de renvoyer la note finale, vérifie que globalScore est cohérent avec la moyenne des 7 critères, que les points forts/faibles listés ne se contredisent pas entre eux, et que chaque erreur critique mentionnée est bien rattachée à un passage réel de la copie.
 
 7. SI LA COPIE EST TROP COURTE, ILLISIBLE OU HORS-SUJET :
-   Dis-le explicitement dans "appreciation" plutôt que de simuler une évaluation détaillée sur un contenu insuffisant.`;
+   Dis-le explicitement dans "appreciation" plutôt que de simuler une évaluation détaillée sur un contenu insuffisant.
+
+8. RESPECT STRICT DU NIVEAU ET DE LA SÉRIE DE L'ÉLÈVE — RÈGLE ABSOLUE :
+   Série / Profil scolaire de l'élève pour CETTE correction : "${serieLabel || serie || "Non précisé — reste au niveau suggéré par le contenu réel de la copie"}".
+   N'exige et n'attends JAMAIS une méthode, une notion ou un formalisme qui appartient à un niveau ou une série DIFFÉRENTE de celle de l'élève :
+   - Un(e) élève de 6e/5e/4e/3e (collège, BEPC) ne doit JAMAIS être pénalisé(e) pour ne pas avoir utilisé une méthode de lycée ou de Terminale (dérivée, intégrale, complexe, récurrence...). Juge selon le programme du collège uniquement.
+   - Un(e) élève de Terminale A2 ne doit JAMAIS être pénalisé(e) pour ne pas avoir utilisé une méthode réservée à la série C ou D (ex: récurrence poussée, calcul intégral approfondi, équations différentielles) : juge selon le programme A2 (Mayer / Moindres Carrés A2, fonctions usuelles, suites simples, probabilités conditionnelles simples).
+   - Un(e) élève de Terminale A1 ne doit être jugé(e) que sur les mathématiques appliquées aux humanités prévues à son programme, jamais sur un formalisme de série scientifique.
+   - Un(e) élève de Terminale C ne doit pas être sous-noté(e) pour avoir utilisé une méthode plus rigoureuse ou plus avancée que celle d'une autre série : au contraire, valorise la rigueur formelle attendue en série C.
+   - Un(e) élève de Terminale D doit être jugé(e) sur le programme D (fonctions composées, primitives, complexes, probabilités, équations différentielles simples), pas sur la rigueur intégrale/arithmétique poussée propre à la série C.
+   - Si la série indiquée est "Non précisé", déduis le niveau probable UNIQUEMENT à partir des notions réellement présentes dans la copie de l'élève (ex: si la copie ne manipule que des équations du 1er degré sans jamais mentionner dérivée/intégrale, traite-la comme un niveau collège/2nde, pas comme une Terminale).
+   Si tu identifies que l'élève a utilisé une méthode hors-programme par rapport à sa série indiquée (plus avancée ou d'une autre filière), signale-le avec bienveillance dans le commentaire du critère "methodology" (ex: "Cette méthode appartient au programme de série C, non au programme A2 : voici la méthode attendue à ton niveau...") plutôt que de simplement sanctionner sans explication.`;
 
     const systemInstruction = `${roleDescription}
 Évalue le devoir de l'élève sur 20 points selon les 7 critères suivants, adaptés à la discipline réelle du devoir :
@@ -1928,6 +1941,9 @@ RÈGLE ABSOLUE : L'exactitude passe avant la rapidité. Ne fabrique jamais une s
 RÈGLES STRICTES DE MISE EN PAGE ET DE LISIBILITÉ :
 - INTERDICTION des symboles de titres Markdown comme "#", "##", "###", "####". Ne mets JAMAIS de "#" dans tes messages.
 - Pour structurer ta réponse : utilise des paragraphes bien aérés, du texte en **Gras** pour les mots ou concepts clés, des listes à puces avec des tirets "-" ou des numéros "1.", "2.", "3.".
+- FRACTIONS OBLIGATOIREMENT AU FORMAT \frac{numérateur}{dénominateur} (ex: \frac{3}{4}, \frac{x+1}{2}) — NE JAMAIS écrire une fraction mathématique à plat sur une seule ligne comme "3/4" ou "x/2", cela peut perdre un élève de collège (confusion avec une division ou une date). Cette notation \frac{}{} est automatiquement affichée sous forme de vraie fraction (numérateur au-dessus d'une barre, dénominateur en dessous) dans l'interface — utilise-la systématiquement pour CHAQUE fraction, y compris dans les calculs intermédiaires.
+- Pour les racines carrées, utilise \sqrt{contenu} (ex: \sqrt{2}, \sqrt{x+1}).
+- Pour les exposants, utilise ^{...} (ex: x^{2}, u_n^{2}) ; pour les indices, utilise _{...} (ex: u_{n+1}).
 - Si tu donnes des formules mathématiques ou des citations, écris-les clairement et lisiblement.
 - Sois direct, pédagogique, synthétique et facile à lire sur écran mobile et desktop.
 

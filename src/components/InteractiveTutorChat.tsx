@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, RefreshCw, X, Sparkles, User, Bot, RotateCcw } from 'lucide-react';
 import { ChatMessage, Fascicule } from '../types';
 import { formatMathSymbols } from '../utils/mathFormatter';
+import { MathText } from './MathText';
 
 interface InteractiveTutorChatProps {
   currentFascicule: Fascicule;
@@ -28,18 +29,18 @@ export const InteractiveTutorChat: React.FC<InteractiveTutorChatProps> = ({
       if (part.startsWith('**') && part.endsWith('**')) {
         return (
           <strong key={i} className="font-semibold text-indigo-950 dark:text-indigo-200">
-            {part.slice(2, -2)}
+            <MathText text={part.slice(2, -2)} />
           </strong>
         );
       }
       if ((part.startsWith('«') && part.endsWith('»')) || (part.startsWith('"') && part.endsWith('"'))) {
         return (
           <span key={i} className="font-serif italic text-amber-900 dark:text-amber-300 font-medium">
-            {part}
+            <MathText text={part} />
           </span>
         );
       }
-      return part;
+      return <MathText key={i} text={part} />;
     });
   };
 
