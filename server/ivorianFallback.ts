@@ -1778,8 +1778,53 @@ En conclusion, la réflexion suscitée par cette affirmation s'avère tout à fa
 
     const cleanSubject = subjectTopic.replace(/^«|»$/g, "").trim();
     const methodoName = `Méthodologie du ${fasciculeTitle || "Fascicule de Référence"}`;
-    const honestExplanation = `Le sujet « ${cleanSubject} » ne correspond pas à l'un des chapitres types pré-indexés dans la base locale hors-ligne. Plutôt que de générer un texte hors-sujet, voici le canevas méthodologique officiel à suivre pour construire votre devoir. Activez la connexion IA principale pour obtenir une rédaction sur-mesure.`;
+    const offlineNotice = `Le sujet « ${cleanSubject} » ne correspond à aucun chapitre pré-rédigé et vérifié de la base locale hors-ligne. Pour ne pas plaquer un contenu qui ne serait pas fidèle à CE sujet précis, la rédaction ci-dessous reste volontairement au niveau du raisonnement et de la structure (elle ne connaît pas d'avance le sens exact que VOUS devez donner aux notions du sujet, ni les auteurs/œuvres précis de votre cours à mobiliser) : à vous de compléter les emplacements indiqués entre crochets avec le sens retenu et vos exemples de cours. Activez la connexion IA principale pour une rédaction entièrement sur-mesure et déjà remplie.`;
+    // Rétro-compatibilité : honestExplanation reste utilisé par les champs
+    // "explication rapide" (level1/2/3, description...) qui doivent rester
+    // courts, tandis que offlineNotice n'apparaît qu'une fois dans la
+    // rédaction complète pour ne pas alourdir chaque champ.
+    const honestExplanation = offlineNotice;
 
+    // Reformule directement la question du sujet en problématique SANS
+    // inventer d'opposition ni changer la question posée (voir la règle
+    // "NE JAMAIS REMPLACER LA QUESTION POSÉE PAR UNE AUTRE"). Si le sujet
+    // est déjà une question, on la reprend telle quelle ; sinon on l'insère
+    // dans un cadre interrogatif neutre qui ne présuppose aucune réponse.
+    const subjectIsQuestion = /\?\s*$/.test(cleanSubject);
+    const problematiqueFromSubject = subjectIsQuestion
+      ? cleanSubject.replace(/\?\s*$/, "") + " ?"
+      : `Dans quelle mesure peut-on affirmer que ${cleanSubject.charAt(0).toLowerCase()}${cleanSubject.slice(1)} ?`;
+
+    const genericIntro = `De nombreuses réflexions, dans ce domaine, invitent à interroger précisément ce que recouvrent les termes employés avant de trancher. C'est dans cette perspective qu'un sujet d'examen soumet l'affirmation suivante : « ${cleanSubject} ». [À compléter : reformulez ici, avec vos propres mots, ce que dit exactement cette affirmation — sans lui substituer une autre question ni lui prêter une opposition qu'elle ne formule pas]. Cela conduit à se demander : ${problematiqueFromSubject} Pour y répondre, nous examinerons d'abord les raisons qui soutiennent cette affirmation, avant d'en discuter les limites.`;
+
+    const genericAxis = (label: "I" | "II", stance: string) => {
+      const letters: Array<"A" | "B" | "C"> = ["A", "B", "C"];
+      const connectors = label === "I" ? ["De prime abord, ", "Aussi, ", "Enfin, "] : ["D'emblée, ", "Par ailleurs, ", "Pour terminer, "];
+      const subParts = letters.map((letter, i) => ({
+        subPartLetter: letter,
+        title: `[À compléter : argument n°${i + 1} ${stance}]`,
+        argument: `${connectors[i]}[formulez ici un argument précis ${stance} qui répond directement au sens du sujet que vous avez retenu, pas à un sujet voisin].`,
+        explication: `[Expliquez en une ou deux phrases simples pourquoi cet argument est vrai et pertinent pour CE sujet précis].`,
+        illustration: {
+          auteur: "[Auteur ou référence de votre cours]",
+          oeuvre: "[Œuvre ou notion du cours]",
+          citation: "[Citation, exemple ou fait précis, exact et vérifié]",
+          analyseIllustration: "[Expliquez en quoi cet exemple confirme concrètement l'argument]",
+        },
+        fullText: `${connectors[i]}[argument n°${i + 1} ${stance} — à rédiger à partir du sens retenu pour ce sujet]. [Illustration à ajouter : auteur/œuvre/exemple précis et son analyse].`,
+      }));
+      return { subParts, thesisOverview: `[Chapeau d'ouverture de l'axe ${label} : annoncez en une phrase l'idée directrice ${stance}]` };
+    };
+
+    const axis1 = genericAxis("I", "qui soutiennent l'affirmation du sujet");
+    const axis2 = genericAxis("II", "qui nuancent ou limitent l'affirmation du sujet");
+
+    const axis1FullText = `${axis1.thesisOverview}\n\n` + axis1.subParts.map(sp => sp.fullText).join("\n");
+    const axis2FullText = `${axis2.thesisOverview}\n\n` + axis2.subParts.map(sp => sp.fullText).join("\n");
+
+    const genericConclusion = `Au terme de cette analyse, il apparaît que [bilan de l'Axe I, en une phrase, à partir de ce que vous avez réellement démontré]. Toutefois, [bilan de l'Axe II, en une phrase]. En définitive, ${problematiqueFromSubject.replace(/\?\s*$/, "")} appelle donc la réponse suivante : [votre prise de position personnelle et argumentée, qui répond directement à la problématique — pas à une question voisine].`;
+
+    const genericFullRedaction = `${genericIntro}\n\nI. ${axis1.thesisOverview}\n${axis1.subParts.map(sp => sp.fullText).join("\n")}\n\n[Transition : bilan de l'Axe I, puis question ouvrant l'Axe II — à rédiger]\n\nII. ${axis2.thesisOverview}\n${axis2.subParts.map(sp => sp.fullText).join("\n")}\n\n${genericConclusion}\n\n${offlineNotice}`;
 
     const planSteps = isTwoAxes
       ? [
@@ -1797,84 +1842,106 @@ En conclusion, la réflexion suscitée par cette affirmation s'avère tout à fa
           "5. Conclusion : bilan et prise de position, en réponse directe à la problématique posée.",
         ];
 
-    const emptySubPart = (letter: string): { subPartLetter: string; title: string; argument: string; explication: string; illustration: { auteur: string; oeuvre: string; citation: string; analyseIllustration: string }; fullText: string } => ({
-      subPartLetter: letter,
-      title: "Non généré hors-ligne",
-      argument: "",
-      explication: "",
-      illustration: { auteur: "", oeuvre: "", citation: "", analyseIllustration: "" },
-      fullText: "",
-    });
-
     return {
       disciplineIdentified: discipline || "Français / Philosophie",
       exerciseTypeIdentified: exerciseType || (isTwoAxes ? "Dissertation / Commentaire (2 Axes)" : "Dissertation / Commentaire (3 Axes)"),
       fasciculeMethodologyActivated: {
         name: methodoName,
-        description: honestExplanation,
+        description: offlineNotice,
         stepsApplied: planSteps,
       },
       sourceDecomposition: {
-        fasciculeMethodologies: ["Voir la méthodologie exacte du fascicule sélectionné (non re-générée hors-ligne)."],
+        fasciculeMethodologies: ["Voir la méthodologie exacte du fascicule sélectionné (canevas générique appliqué hors-ligne)."],
         fasciculeKnowledgeUsed: [],
         externalKnowledgeMobilized: [],
       },
-      pedagogicalTransferExplanation: honestExplanation,
-      level1Hint: `Identifiez la tension centrale du sujet « ${cleanSubject} » et formulez une problématique qui l'exprime fidèlement, avant de bâtir le plan.`,
-      level2Methodology: `${honestExplanation}\n\nCanevas à suivre :\n${planSteps.join("\n")}`,
+      pedagogicalTransferExplanation: offlineNotice,
+      level1Hint: `Identifiez la tension centrale du sujet « ${cleanSubject} » et formulez une problématique qui l'exprime fidèlement (voir la problématique déjà proposée ci-dessous), avant de bâtir le plan.`,
+      level2Methodology: `${offlineNotice}\n\nCanevas à suivre :\n${planSteps.join("\n")}`,
       level3GuidanceSteps: [
         "Lisez et reformulez précisément le sujet avant toute chose : ne le confondez pas avec un sujet voisin déjà traité.",
-        "Construisez une problématique fidèle au sujet exact soumis.",
-        "Développez chaque axe avec des arguments et exemples réellement pertinents pour CE sujet, pas des illustrations recyclées d'un autre devoir.",
-        "Rédigez une conclusion qui répond directement à la problématique posée.",
+        "Construisez une problématique fidèle au sujet exact soumis (une proposition vous est déjà donnée ci-dessous, à ajuster si besoin).",
+        "Remplacez chaque emplacement entre crochets par un argument et un exemple réellement pertinents pour CE sujet, pas des illustrations recyclées d'un autre devoir.",
+        "Rédigez une conclusion qui répond directement à la problématique posée, pas à une question voisine.",
       ],
-      level4DetailedOutline: honestExplanation,
-      level5FullRedaction: honestExplanation,
+      level4DetailedOutline: `I. INTRODUCTION\n- Amorce + insertion du sujet + reformulation\n- Problématique : ${problematiqueFromSubject}\n- Annonce du plan\n\nII. DÉVELOPPEMENT\n1. Axe I : arguments qui soutiennent l'affirmation [3 sous-parties à compléter]\n2. Axe II : arguments qui nuancent ou limitent l'affirmation [3 sous-parties à compléter]\n\nIII. CONCLUSION\n- Bilan des deux axes\n- Réponse directe à la problématique`,
+      level5FullRedaction: genericFullRedaction,
       structuredRedaction: {
-        planSummary: "Non généré hors-ligne — nécessite le moteur IA principal pour une rédaction fidèle au sujet.",
+        planSummary: `Axe I (en faveur) | Axe II (nuances et limites) — canevas générique, à compléter aux emplacements indiqués`,
         introduction: {
-          amorce: "",
+          amorce: genericIntro.split(problematiqueFromSubject)[0] || genericIntro,
           definitionTension: cleanSubject,
-          problematique: "",
-          annoncePlan: "",
-          fullText: honestExplanation,
+          problematique: problematiqueFromSubject,
+          annoncePlan: "Nous examinerons d'abord les raisons qui soutiennent cette affirmation, avant d'en discuter les limites.",
+          fullText: genericIntro,
         },
         development: {
           part1: {
             partNumber: 1,
-            title: "Axe I — non généré hors-ligne",
-            thesisOverview: "",
-            subParts: [emptySubPart("A"), emptySubPart("B"), emptySubPart("C")],
-            fullText: "",
+            title: "Axe I — arguments en faveur de l'affirmation",
+            thesisOverview: axis1.thesisOverview,
+            subParts: axis1.subParts,
+            fullText: axis1FullText,
           },
-          transition1: "",
+          transition1: "De cette première analyse, il ressort des raisons sérieuses de soutenir l'affirmation. Toutefois, cette position résiste-t-elle entièrement à l'examen ?",
           part2: {
             partNumber: 2,
-            title: "Axe II — non généré hors-ligne",
-            thesisOverview: "",
-            subParts: [emptySubPart("A"), emptySubPart("B"), emptySubPart("C")],
-            fullText: "",
+            title: "Axe II — nuances et limites de l'affirmation",
+            thesisOverview: axis2.thesisOverview,
+            subParts: axis2.subParts,
+            fullText: axis2FullText,
           },
         },
         conclusion: {
-          bilanSynthese: "",
-          reponseDefinitive: "",
-          elargissement: "",
-          fullText: "",
+          bilanSynthese: "[Bilan de l'Axe I, en une phrase]",
+          reponseDefinitive: "[Bilan de l'Axe II puis réponse directe à la problématique, en une phrase]",
+          elargissement: "[Optionnel : ouverture vers une question voisine mais distincte]",
+          fullText: genericConclusion,
         },
       },
       stepByStepBreakdown: [
         {
           stepNumber: 1,
-          stepTitle: "Rédaction indisponible hors-ligne",
-          methodologyRuleApplied: honestExplanation,
-          content: honestExplanation,
-          sourceTags: ["Moteur de secours local", "Hors-ligne"],
-          pedagogicalTip: "Réessayez lorsque le moteur IA principal est disponible pour obtenir une rédaction réellement adaptée au sujet.",
+          stepTitle: "Introduction (structure fournie, contenu à compléter)",
+          methodologyRuleApplied: "Amorce, sujet cité intégralement, problématique fidèle, annonce du plan.",
+          content: genericIntro,
+          sourceTags: ["Introduction", "Canevas générique hors-ligne"],
+          pedagogicalTip: "Ne changez jamais la question posée par une question voisine en la reformulant.",
+        },
+        {
+          stepNumber: 2,
+          stepTitle: "Axe I (structure fournie, arguments à compléter)",
+          methodologyRuleApplied: "Chapeau + 3 arguments et illustrations à préciser.",
+          content: axis1FullText,
+          sourceTags: ["Axe I", "Canevas générique hors-ligne"],
+          pedagogicalTip: "Chaque argument doit répondre au sens du sujet que vous avez retenu, pas à un sujet voisin.",
+        },
+        {
+          stepNumber: 3,
+          stepTitle: "Axe II (structure fournie, arguments à compléter)",
+          methodologyRuleApplied: "Chapeau + 3 arguments nuançant l'Axe I, illustrations à préciser.",
+          content: axis2FullText,
+          sourceTags: ["Axe II", "Canevas générique hors-ligne"],
+          pedagogicalTip: "Une vraie nuance discute l'Axe I ; elle ne le répète pas sous une autre forme.",
+        },
+        {
+          stepNumber: 4,
+          stepTitle: "Conclusion (structure fournie, bilan à compléter)",
+          methodologyRuleApplied: "Bilan des deux axes puis réponse nette à la problématique.",
+          content: genericConclusion,
+          sourceTags: ["Conclusion", "Canevas générique hors-ligne"],
+          pedagogicalTip: "La conclusion doit répondre à LA question posée en introduction, pas à une question voisine.",
         },
       ],
-      fullSynthesizedResponse: honestExplanation,
-      evaluationCriteria: [],
+      fullSynthesizedResponse: genericFullRedaction,
+      evaluationCriteria: [
+        {
+          criterion: "Fidélité au sujet exact",
+          fasciculeOrigin: true,
+          description: "La problématique, les arguments et la conclusion doivent tous répondre à CE sujet précis, sans le remplacer par un sujet voisin.",
+          tipsForAutonomy: "Relisez le sujet mot à mot avant de rédiger chaque partie pour vérifier que vous y répondez encore.",
+        },
+      ],
     };
   }
 }

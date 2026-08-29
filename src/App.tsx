@@ -4,6 +4,7 @@ import { SubjectInputPanel } from './components/SubjectInputPanel';
 import { AnalysisResultsView } from './components/AnalysisResultsView';
 import { HomeworkGraderView } from './components/HomeworkGraderView';
 import { CourseSearchView } from './components/CourseSearchView';
+import { ToolModal } from './components/ToolModal';
 import { ChatComposer, ComposerTool } from './components/ChatComposer';
 import {
   UserBubble,
@@ -18,8 +19,7 @@ type Turn =
   | { id: string; role: 'user'; kind: 'text'; text: string }
   | { id: string; role: 'assistant'; kind: 'loading'; label?: string }
   | { id: string; role: 'assistant'; kind: 'analysis'; result: MethodologyAnalysisResult; subjectTitle: string }
-  | { id: string; role: 'assistant'; kind: 'error'; message: string }
-  | { id: string; role: 'assistant'; kind: 'tool'; tool: ComposerTool };
+  | { id: string; role: 'assistant'; kind: 'error'; message: string };
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -67,7 +67,13 @@ export default function App() {
     planStructure: string = '2_axes',
     detectedDisciplineLabel?: string,
     serie?: string,
-    serieLabel?: string
+    serieLabel?: string,
+    // Image jointe par l'élève (figure, schéma, tableau, photo du sujet...).
+    // Transmise telle quelle au serveur pour cette seule requête : elle n'est
+    // conservée nulle part côté client une fois la requête envoyée, ni côté
+    // serveur au-delà du traitement (voir /api/analyze-exercise).
+    imageBase64?: string,
+    imageMimeType?: string
   ) => {
     if (!subject.trim() || isLoading) return;
 
@@ -110,6 +116,8 @@ export default function App() {
           serie: serie || detection.serie,
           serieLabel: serieLabel || detection.serieLabel,
           level: detection.level,
+          imageBase64,
+          imageMimeType,
         }),
       });
 
@@ -147,15 +155,9 @@ export default function App() {
 
   const handleOpenTool = (tool: ComposerTool) => {
     setActiveTool((prev) => (prev === tool ? null : tool));
-    if (activeTool !== tool) {
-      setTurns((prev) => [...prev, { id: uid(), role: 'assistant', kind: 'tool', tool }]);
-    }
   };
 
-  const closeTurn = (turnId: string) => {
-    setTurns((prev) => prev.filter((t) => t.id !== turnId));
-    setActiveTool(null);
-  };
+  const closeToolModal = () => setActiveTool(null);
 
   return (
     <div className="h-[100dvh] flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-indigo-600 selection:text-white transition-colors duration-200 overflow-x-hidden">
@@ -195,52 +197,51 @@ export default function App() {
                 </AssistantCard>
               );
             }
-            if (turn.kind === 'tool') {
-              const titles: Record<ComposerTool, string> = {
-                advanced: 'Options avancées & scan photo',
-                grader: 'Correcteur de devoirs — Note / 20',
-                search: 'Recherche de cours & savoir sûr',
-              };
-              return (
-                <AssistantCard key={turn.id} title={titles[turn.tool]} onClose={() => closeTurn(turn.id)} bare>
-                  {turn.tool === 'advanced' && (
-                    <SubjectInputPanel
-                      currentFascicule={selectedFascicule}
-                      onSubmit={runAnalysis}
-                      isLoading={isLoading}
-                      subjectInput={composerValue}
-                      setSubjectInput={setComposerValue}
-                    />
-                  )}
-                  {turn.tool === 'grader' && (
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl rounded-tl-lg shadow-sm overflow-hidden">
-                      <HomeworkGraderView
-                        currentFascicule={selectedFascicule}
-                        currentSubject={lastSubject}
-                        academicProfile={academicProfile}
-                      />
-                    </div>
-                  )}
-                  {turn.tool === 'search' && (
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl rounded-tl-lg shadow-sm overflow-hidden">
-                      <CourseSearchView
-                        onSelectQuery={(q) => {
-                          closeTurn(turn.id);
-                          const detection = detectSubjectMetadata(q);
-                          runAnalysis(q, detection.exerciseType, 'comprehensive', '2_axes', detection.disciplineLabel, detection.serie, detection.serieLabel);
-                        }}
-                      />
-                    </div>
-                  )}
-                </AssistantCard>
-              );
-            }
             return null;
           })}
 
           <div ref={feedEndRef} />
         </div>
       </main>
+
+      {activeTool && (
+        <ToolModal
+          title={
+            {
+              advanced: 'Options avancées & scan photo',
+              grader: 'Correcteur de devoirs — Note / 20',
+              search: 'Recherche de cours & savoir sûr',
+            }[activeTool]
+          }
+          onClose={closeToolModal}
+        >
+          {activeTool === 'advanced' && (
+            <SubjectInputPanel
+              currentFascicule={selectedFascicule}
+              onSubmit={runAnalysis}
+              isLoading={isLoading}
+              subjectInput={composerValue}
+              setSubjectInput={setComposerValue}
+            />
+          )}
+          {activeTool === 'grader' && (
+            <HomeworkGraderView
+              currentFascicule={selectedFascicule}
+              currentSubject={lastSubject}
+              academicProfile={academicProfile}
+            />
+          )}
+          {activeTool === 'search' && (
+            <CourseSearchView
+              onSelectQuery={(q) => {
+                closeToolModal();
+                const detection = detectSubjectMetadata(q);
+                runAnalysis(q, detection.exerciseType, 'comprehensive', '2_axes', detection.disciplineLabel, detection.serie, detection.serieLabel);
+              }}
+            />
+          )}
+        </ToolModal>
+      )}
 
       <ChatComposer
         value={composerValue}

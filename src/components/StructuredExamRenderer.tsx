@@ -14,6 +14,7 @@ import {
   FileCheck 
 } from 'lucide-react';
 import { formatMathSymbols } from '../utils/mathFormatter';
+import { MathText } from './MathText';
 export { formatMathSymbols };
 
 interface StructuredQuestion {
@@ -530,7 +531,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                   }`}>
                     Données & Énoncé de l'exercice :
                   </div>
-                  <p className="whitespace-pre-line font-medium">{ex.introContext}</p>
+                  <p className="whitespace-pre-line font-medium"><MathText text={ex.introContext} /></p>
                 </div>
               )}
 
@@ -622,7 +623,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                             <span className={`text-xs sm:text-sm font-bold truncate ${
                               isDark ? 'text-white' : 'text-slate-900'
                             }`} title={q.titleOrPrompt}>
-                              {q.titleOrPrompt}
+                              <MathText text={q.titleOrPrompt} />
                             </span>
                           )}
                         </div>
@@ -681,7 +682,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                                     }`}
                                   >
                                     <span className="text-indigo-500 font-bold shrink-0 mt-0.5">ℹ️</span>
-                                    <div className="flex-1 whitespace-pre-line">{trimmedStep}</div>
+                                    <div className="flex-1 whitespace-pre-line"><MathText text={trimmedStep} /></div>
                                   </div>
                                 );
                               }
@@ -702,7 +703,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                                       }`}>
                                         ▸
                                       </span>
-                                      <span className="font-semibold tracking-wide whitespace-pre-wrap">{trimmedStep}</span>
+                                      <span className="font-semibold tracking-wide whitespace-pre-wrap"><MathText text={trimmedStep} /></span>
                                     </div>
                                   </div>
                                 );
@@ -722,7 +723,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                                   }`}>
                                     •
                                   </span>
-                                  <div className="flex-1 whitespace-pre-line font-medium">{trimmedStep}</div>
+                                  <div className="flex-1 whitespace-pre-line font-medium"><MathText text={trimmedStep} /></div>
                                 </div>
                               );
                             })}
@@ -761,7 +762,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                                 ? isDark ? 'text-rose-200' : 'text-rose-950'
                                 : isDark ? 'text-emerald-200' : 'text-emerald-950'
                             }`}>
-                              {q.finalAnswer}
+                              <MathText text={q.finalAnswer} />
                             </div>
                           </div>
                         </div>
@@ -808,7 +809,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                 <div className={`p-3 rounded-lg border text-xs sm:text-sm italic font-medium leading-relaxed ${
                   isDark ? 'bg-slate-900/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-800'
                 }`}>
-                  {ex.introContext}
+                  <MathText text={ex.introContext} />
                 </div>
               )}
 
@@ -820,7 +821,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                       isDark ? 'text-white' : 'text-slate-950'
                     }`}>
                       <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{q.numberLabel}</span>
-                      {q.titleOrPrompt && <span>{q.titleOrPrompt}</span>}
+                      {q.titleOrPrompt && <span><MathText text={q.titleOrPrompt} /></span>}
                     </div>
 
                     {/* Step calculations */}
@@ -837,7 +838,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                                   : 'text-slate-700 dark:text-slate-300 font-medium'
                               }`}
                             >
-                              {isPureMath ? `   ${st}` : st}
+                              {isPureMath ? <><span className="mr-1">&nbsp;&nbsp;&nbsp;</span><MathText text={st} /></> : <MathText text={st} />}
                             </div>
                           );
                         })}
@@ -855,7 +856,7 @@ export const StructuredExamRenderer: React.FC<StructuredExamRendererProps> = ({
                           <span className="font-sans text-xs font-bold mr-2 text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">
                             Conclusion :
                           </span>
-                          {q.finalAnswer}
+                          <MathText text={q.finalAnswer} />
                         </div>
                       </div>
                     )}

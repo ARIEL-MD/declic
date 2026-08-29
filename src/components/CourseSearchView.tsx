@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { CourseSearchResult } from '../types';
 import { DisciplineIcon } from './DisciplineIcon';
+import { MathText } from './MathText';
 
 interface CourseSearchViewProps {
   onSelectQuery?: (query: string) => void;
@@ -272,18 +273,18 @@ ${searchResult.quickRevisionMemo}
                       </div>
                       
                       <div className="p-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-500/20 rounded-xl font-mono text-sm sm:text-base text-indigo-900 dark:text-indigo-200 overflow-x-auto font-bold">
-                        {item.formulaOrRule}
+                        <MathText text={item.formulaOrRule} />
                       </div>
 
                       <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
                         <span className="font-semibold text-slate-900 dark:text-slate-400">Explication : </span>
-                        {item.explanation}
+                        <MathText text={item.explanation} />
                       </div>
 
                       {item.contextOrApplication && (
                         <div className="text-xs text-slate-700 dark:text-slate-400 bg-white dark:bg-slate-900/90 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800/80 shadow-2xs">
                           <span className="font-semibold text-indigo-700 dark:text-indigo-400">Quand l'utiliser : </span>
-                          {item.contextOrApplication}
+                          <MathText text={item.contextOrApplication} />
                         </div>
                       )}
                     </div>
@@ -314,12 +315,12 @@ ${searchResult.quickRevisionMemo}
                           {step.title}
                         </div>
                         <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                          {step.whatToDo}
+                          <MathText text={step.whatToDo} />
                         </p>
                         {step.reflexOrTip && (
                           <div className="text-xs text-amber-900 dark:text-amber-300/90 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-500/20 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 mt-1 font-medium">
                             <Zap className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                            <span><strong>Réflexe gagnant :</strong> {step.reflexOrTip}</span>
+                            <span><strong>Réflexe gagnant :</strong> <MathText text={step.reflexOrTip} /></span>
                           </div>
                         )}
                       </div>
@@ -352,14 +353,14 @@ ${searchResult.quickRevisionMemo}
                 <div className="space-y-2">
                   <div className="text-xs font-semibold text-indigo-800 dark:text-indigo-300">Démonstration & Démarche détaillée :</div>
                   <div className="p-4 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-200 whitespace-pre-line leading-relaxed font-sans shadow-2xs">
-                    {searchResult.solvedExample.solutionStepByStep}
+                    <MathText text={searchResult.solvedExample.solutionStepByStep} />
                   </div>
                 </div>
 
                 <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/30 rounded-xl flex items-center justify-between gap-3 text-xs sm:text-sm">
                   <span className="font-semibold text-emerald-800 dark:text-emerald-300">Réponse finale encadrée :</span>
                   <span className="font-mono font-bold text-emerald-900 dark:text-emerald-200 bg-emerald-100 dark:bg-emerald-900/40 px-3 py-1 rounded-lg border border-emerald-300 dark:border-emerald-500/20">
-                    {searchResult.solvedExample.finalAnswer}
+                    <MathText text={searchResult.solvedExample.finalAnswer} />
                   </span>
                 </div>
               </div>

@@ -26,7 +26,12 @@ interface SubjectInputPanelProps {
     planStructure: string,
     disciplineLabel?: string,
     serie?: string,
-    serieLabel?: string
+    serieLabel?: string,
+    // Image jointe (figure, schéma, tableau, photo du sujet...), envoyée telle
+    // quelle jusqu'à la résolution. Optionnelle : absente si l'élève n'a pas
+    // scanné de photo, ou s'il l'a retirée avant d'envoyer.
+    imageBase64?: string,
+    imageMimeType?: string
   ) => void;
   isLoading: boolean;
   subjectInput: string;
@@ -53,6 +58,11 @@ export const SubjectInputPanel: React.FC<SubjectInputPanelProps> = ({
   const [isScanningOCR, setIsScanningOCR] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
+  // Image jointe (photo d'un exercice, d'une figure, d'un schéma...). Elle reste en
+  // mémoire le temps que l'élève complète/écrit sa question, puis part avec la
+  // requête d'envoi. Elle n'est jamais sauvegardée : elle est effacée du state dès
+  // que le sujet est soumis (ou si l'élève clique sur "Retirer l'image").
+  const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; previewUrl: string } | null>(null);
   const [selectedSerieOverride, setSelectedSerieOverride] = useState<AcademicSerie>('auto');
   
   // Translation state
@@ -154,8 +164,27 @@ export const SubjectInputPanel: React.FC<SubjectInputPanelProps> = ({
       '2_axes',
       detectionResult.disciplineLabel,
       activeSerieInfo.serie,
-      activeSerieInfo.serieLabel
+      activeSerieInfo.serieLabel,
+      attachedImage?.base64,
+      attachedImage?.mimeType
     );
+
+    // L'image ne doit jamais rester en mémoire au-delà de l'envoi : une fois
+    // partie avec la requête, on l'efface immédiatement du panneau. Elle a déjà
+    // été transmise par valeur à onSubmit, donc la vider ici n'affecte pas la
+    // requête en cours.
+    if (attachedImage) {
+      URL.revokeObjectURL(attachedImage.previewUrl);
+      setAttachedImage(null);
+    }
+  };
+
+  const handleRemoveAttachedImage = () => {
+    if (attachedImage) {
+      URL.revokeObjectURL(attachedImage.previewUrl);
+    }
+    setAttachedImage(null);
+    setOcrError(null);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -169,23 +198,38 @@ export const SubjectInputPanel: React.FC<SubjectInputPanelProps> = ({
       const reader = new FileReader();
       reader.onload = async () => {
         const base64Data = reader.result as string;
+        const mimeType = file.type || 'image/jpeg';
+
+        // On garde l'image elle-même (pas seulement le texte que l'OCR en tire),
+        // pour qu'elle accompagne le sujet jusqu'à la résolution : une figure, un
+        // schéma ou un tableau se lisent mieux directement que via une
+        // description texte. L'aperçu utilise un object URL séparé, libéré dès
+        // que l'image est retirée ou envoyée.
+        setAttachedImage({ base64: base64Data, mimeType, previewUrl: URL.createObjectURL(file) });
+
         try {
           const res = await fetch('/api/ocr-scan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               imageBase64: base64Data,
-              mimeType: file.type || 'image/jpeg',
+              mimeType,
             }),
           });
           const data = await res.json();
           if (data.success && data.text) {
+            // Pré-remplit le texte (utile si les questions sont écrites sur la
+            // photo) ; l'élève peut librement l'éditer ou écrire lui-même sa
+            // question — l'image reste jointe dans les deux cas.
             setSubjectInput(data.text);
-          } else {
-            setOcrError(data.error || "Impossible de lire le texte de l'image.");
+          } else if (!data.success && data.error) {
+            // Ce n'est pas bloquant : si la photo ne contient qu'un schéma sans
+            // texte, l'OCR peut ne rien retourner. L'élève tape alors sa
+            // question lui-même, l'image restant attachée pour la résolution.
+            setOcrError(data.error);
           }
         } catch (err: any) {
-          setOcrError("Erreur lors de l'analyse OCR.");
+          setOcrError("Erreur lors de l'analyse OCR. Vous pouvez quand même écrire votre question : la photo reste jointe.");
         } finally {
           setIsScanningOCR(false);
         }
@@ -278,6 +322,31 @@ export const SubjectInputPanel: React.FC<SubjectInputPanelProps> = ({
               </span>
             </div>
           </div>
+
+          {attachedImage && (
+            <div className="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/60 rounded-xl p-2.5">
+              <img
+                src={attachedImage.previewUrl}
+                alt="Photo jointe à l'exercice"
+                className="w-12 h-12 object-cover rounded-lg border border-indigo-200 dark:border-indigo-800"
+              />
+              <div className="flex-1 text-xs text-indigo-800 dark:text-indigo-300">
+                <p className="font-semibold">Photo jointe</p>
+                <p className="text-indigo-600 dark:text-indigo-400">
+                  Elle sera envoyée avec votre question pour la résolution (figure, schéma, tableau...), puis effacée.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveAttachedImage}
+                className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60 transition-colors cursor-pointer shrink-0"
+                title="Retirer la photo jointe"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Retirer</span>
+              </button>
+            </div>
+          )}
 
           <div className="relative">
             <textarea

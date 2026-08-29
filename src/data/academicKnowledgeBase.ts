@@ -1117,38 +1117,48 @@ export function findAcademicKnowledge(query: string, disciplineHint?: string): A
     }
   }
 
-  // Second check if discipline matches closely
-  if (/philo/i.test(disc) || /philosophie/i.test(q)) {
-    // Default to conscience or mythe if query is philosophical
-    if (/conscience|esprit|sujet|ego|psych/i.test(q)) {
-      return ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'philo-conscience-inconscient') || ACADEMIC_KNOWLEDGE_BASE[0];
-    }
-    if (/politique|[ée]tat|droit|loi|justice|citoyen/i.test(q)) {
-      return ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'philo-etat-justice-societe') || ACADEMIC_KNOWLEDGE_BASE[0];
-    }
-    return ACADEMIC_KNOWLEDGE_BASE[0]; // Philo Mythe/Vérité
+  // Second pass: only match on genuinely specific signals, never on the
+  // discipline alone. Matching "discipline == philo" (or français/maths/PC)
+  // and then silently defaulting to one arbitrary chapter (e.g. always
+  // "Mythe/Vérité" for philo) is exactly the anti-pattern the DÉCLIC
+  // methodology forbids: "mot/discipline reconnu → chapitre connu →
+  // reproduction du cours". A sujet like « La philosophie est-elle un
+  // mythe ? » is not automatically the "mythe" chapter — the meaning of
+  // "mythe" here must come from the sujet itself, not from a keyword
+  // shortcut. So below we only ever return a topic when the QUERY itself
+  // contains a specific, unambiguous signal for that exact chapter — never
+  // purely from the discipline hint. If nothing specific is found, we
+  // return null on purpose: the caller (ivorianFallback.ts) already has an
+  // honest "no matching chapter — here is the methodological canvas
+  // instead" path for exactly this case, and that path must be allowed to
+  // trigger rather than being pre-empted by a forced, possibly wrong match.
+  if (/conscience|inconscient\b|refoulement|ça\b|surmoi/i.test(q)) {
+    const t = ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'philo-conscience-inconscient');
+    if (t) return t;
   }
-
-  if (/fran[çc]ais|litt[ée]rature/i.test(disc) || /roman|po[ée]sie|th[ée][âa]tre|litt[ée]raire/i.test(q)) {
-    return ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'francais-roman-societe') || null;
+  if (/[ée]tat\b|souverainet[ée]|contrat social|l[ée]gitimit[ée] politique|d[ée]sob[ée]issance civile/i.test(q)) {
+    const t = ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'philo-etat-justice-societe');
+    if (t) return t;
   }
-
-  if (/math/i.test(disc) || /calcul|in[ée]quation|fonction|suite|int[ée]grale/i.test(q)) {
-    if (/suite|proba|arbre|al[ée]a|hasard/i.test(q)) {
-      return ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'maths-suites-probabilites') || ACADEMIC_KNOWLEDGE_BASE[3];
-    }
-    return ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'maths-analyse-fonctions') || ACADEMIC_KNOWLEDGE_BASE[3];
+  if (/suite\s*(num[ée]rique|g[ée]om[ée]trique|arithm[ée]tique)|probabilit[ée]|arbre pond[ée]r[ée]|al[ée]atoire/i.test(q)) {
+    const t = ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'maths-suites-probabilites');
+    if (t) return t;
   }
-
-  if (/physique|chimie/i.test(disc) || /vitesse|mouvement|acide|ph|force/i.test(q)) {
-    if (/acide|base|ph|chimie|dosage|solution/i.test(q)) {
-      return ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'pc-chimie-acides-bases') || ACADEMIC_KNOWLEDGE_BASE[5];
-    }
-    return ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'pc-mecanique-newton') || ACADEMIC_KNOWLEDGE_BASE[4];
+  if (/d[ée]riv[ée]e|primitive|[ée]tude de fonction|f\(x\)|asymptote|limite en/i.test(q)) {
+    const t = ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'maths-analyse-fonctions');
+    if (t) return t;
   }
-
-  if (/histoire|g[ée]ographie|hg|civique|edhc/i.test(disc) || /colonisation|guerre|cacao|ind[ée]pendance/i.test(q)) {
-    return ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'hg-decolonisation-ci') || null;
+  if (/acide|base faible|base forte|\bph\b|titrage|dosage|solution aqueuse/i.test(q)) {
+    const t = ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'pc-chimie-acides-bases');
+    if (t) return t;
+  }
+  if (/loi de newton|principe fondamental de la dynamique|pfd\b|chute libre|frottement/i.test(q)) {
+    const t = ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'pc-mecanique-newton');
+    if (t) return t;
+  }
+  if (/d[ée]colonisation|ind[ée]pendance de la c[ôo]te d'ivoire|houphou[ëe]t-boigny|7 ao[ûu]t 1960/i.test(q)) {
+    const t = ACADEMIC_KNOWLEDGE_BASE.find(t => t.id === 'hg-decolonisation-ci');
+    if (t) return t;
   }
 
   return null;

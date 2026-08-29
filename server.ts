@@ -145,8 +145,72 @@ async function translateWithGoogleCloudTranslate(params: {
 // ==========================================
 
 /**
- * Endpoint for Optical Character Recognition (OCR) / Photo Scan
+ * Directive d'écriture mathématique académique (Côte d'Ivoire), partagée par
+ * toutes les routes IA qui peuvent produire des maths (analyse d'exercice,
+ * correction de devoir, recherche de cours, tuteur interactif) : impose la
+ * notation \frac{a}{b} pour toute fraction (affichée ensuite empilée par le
+ * composant frontend MathText), \sqrt{}, exposants ^, indices _, et les vrais
+ * symboles mathématiques (×, ≤, ≥, ≠, ∈, ∉, ∪, ∩, √, X̄, ln, etc.) au lieu de
+ * texte brut ou de notation ASCII.
  */
+const MATH_WRITING_NOTATION_DIRECTIVE = `
+RÈGLE ABSOLUE D'ÉCRITURE MATHÉMATIQUE ACADÉMIQUE (CÔTE D'IVOIRE) — TOUJOURS APPLIQUÉE, SANS EXCEPTION :
+Tes réponses doivent ressembler exactement à une copie académique ivoirienne rédigée au tableau ou dans un manuel : écriture mathématique propre, fractions bien présentées, symboles corrects, jamais de texte brut à la place d'une notation mathématique.
+
+1. FRACTIONS TOUJOURS EN NOTATION \\frac{numérateur}{dénominateur} :
+   N'écris JAMAIS une fraction en ligne avec un simple "/" (ex: interdiction d'écrire "1/x", "(a+b)/c", "21/6"). Utilise SYSTÉMATIQUEMENT la notation \\frac{...}{...} pour permettre son affichage empilé (numérateur au-dessus, dénominateur en dessous), comme :
+   - \\frac{1}{x} (jamais "1/x")
+   - \\frac{\\ln x}{x} (jamais "ln x / x")
+   - X̄ = \\frac{1+2+3+4+5+6}{6} = \\frac{21}{6} = 3,5
+   - a = \\frac{Cov(X,Y)}{V(X)} = \\frac{6,82}{2,92} ≈ 2,34
+   Cette règle s'applique à TOUTES les fractions : calcul littéral, statistiques (moyenne X̄, variance, covariance, coefficients a et b), probabilités, trigonométrie, physique-chimie (formules avec division), etc.
+
+2. AUTRES NOTATIONS OBLIGATOIRES :
+   - Racines : \\sqrt{...} (ex: \\sqrt{2}, \\sqrt{b^2-4ac}) — jamais "racine(...)" en toutes lettres.
+   - Puissances/exposants : notation ^ (ex: x^2, x^3, e^x, (x+1)^{2}) qui s'affiche automatiquement en exposant réel.
+   - Indices : notation _ (ex: u_n, u_{n+1}, x_1) qui s'affiche automatiquement en indice réel.
+
+3. VRAIS SYMBOLES MATHÉMATIQUES OBLIGATOIRES (jamais leur équivalent en toutes lettres ou en ASCII) :
+   × (jamais "*"), ÷, ≤, ≥, ≠, ≈, ∈, ∉, ∪, ∩, √, ∞, π, →, ➔, ∆, Ω, ℕ, ℝ, ℤ, ℚ, ℂ.
+   Écris toujours X̄ (x-barre) et non "X_barre" ou "x barre" ; ln(x) et non "Inx" ; eˣ/e^x et non "e2x" pour désigner une puissance de e.
+
+4. UNE ÉTAPE DE CALCUL PAR LIGNE :
+   Chaque transformation d'un calcul doit apparaître sur sa propre ligne (une égalité par ligne), jamais plusieurs étapes concaténées sur une seule ligne.
+
+5. RÉPONSE FINALE MISE EN ÉVIDENCE :
+   Le résultat final de chaque question doit être clairement isolé (dans le champ finalAnswer / résultat encadré), écrit avec les mêmes notations \\frac{}{}, \\sqrt{}, exposants et symboles que ci-dessus quand la réponse est une expression, une fraction ou contient un symbole mathématique.
+
+Cette règle d'écriture est indépendante de la justesse du calcul (qui reste régie par les règles de vérification ci-dessus) : une réponse mathématiquement juste mais mal écrite (fraction en ligne, symbole ASCII) est considérée comme non conforme et doit être corrigée avant d'être renvoyée.`;
+
+/**
+ * DÉCLIC — Moteur d'analyse d'image (Vision + OCR intelligent + Fusion)
+ *
+ * Ce moteur ne se limite jamais à une transcription texte brute : il observe
+ * d'abord toute la page (figures géométriques, graphiques, tableaux, schémas
+ * de physique/chimie/SVT, cartes, frises, documents, diagrammes...), lit
+ * ensuite tout le texte visible (énoncé, questions, consignes, valeurs,
+ * légendes, unités), puis FUSIONNE les deux pour reconstruire un énoncé
+ * unique et exploitable, dans lequel chaque élément visuel important est
+ * restitué en clair (ex : "[Figure : triangle ABC rectangle en A, AB = 5 cm,
+ * marque d'angle droit en A]"). Il ne remplace pas la détection de matière
+ * ni la résolution, qui restent gérées plus loin dans le pipeline (endpoints
+ * /api/detect-subject puis résolution par matière) : il leur fournit un
+ * texte source complet, fidèle et sans perte d'information visuelle.
+ */
+const IMAGE_ANALYSIS_SYSTEM_INSTRUCTION = `Tu es le moteur de vision de DÉCLIC. Tu analyses une photo de devoir, d'exercice ou d'épreuve pour en reconstruire le contenu intégral, texte ET visuel confondus. Tu ne dois JAMAIS te limiter à l'OCR : tu dois comprendre tout ce qui est visible dans l'image.
+
+ÉTAPE 1 — ANALYSE VISUELLE : observe toute la page et identifie les éléments graphiques avant de lire le texte (figures géométriques, repères, vecteurs, graphiques et courbes, tableaux et statistiques, schémas de physique comme circuits/lentilles/forces, schémas de chimie comme molécules/verrerie/réactions, schémas de SVT comme cellules/organes/ADN/expériences, cartes de géographie, frises historiques, images et documents, diagrammes et organigrammes). Considère chacun de ces éléments comme une donnée officielle de l'exercice, jamais comme un simple décor.
+
+ÉTAPE 2 — OCR INTELLIGENT : lis ensuite tout le texte présent (énoncé, questions, consignes, valeurs numériques, légendes, titres, notes visibles, unités et symboles) et corrige automatiquement les erreurs manifestes de reconnaissance optique.
+
+ÉTAPE 3 — FUSION : fusionne les informations visuelles et textuelles pour reconstruire le sujet complet. Un angle droit dessiné est une donnée importante, une flèche sur un circuit indique un sens de courant, une cellule légendée est une information scientifique, une carte colorée est un document à interpréter. Ne jamais ignorer un élément graphique : décris-le entre crochets, directement à l'endroit du texte où il intervient, par exemple "[Figure : triangle ABC, angle droit en A, AB = 5 cm, BC = 13 cm]", "[Graphique : courbe croissante de f passant par (0;1) et (2;5)]", "[Tableau : x = 1,2,3 ; f(x) = 2,4,6]", "[Schéma : circuit série avec une pile, une lampe et un ampèremètre, flèche du courant sortant de la borne + de la pile]", "[Carte : zones en rouge indiquant les régions à forte densité de population]".
+
+RÈGLES IMPORTANTES :
+- Ne restitue jamais uniquement le texte extrait : les éléments visuels doivent apparaître dans le texte reconstruit.
+- Si une partie de l'image est floue ou illisible, indique précisément ce qui manque (ex. "[une valeur illisible sur le schéma]") au lieu d'inventer une donnée.
+- Respecte scrupuleusement les notations mathématiques et scientifiques manuscrites : infini (+∞, -∞), fonctions trigonométriques (cos, sin, tan), limites (lim x->+∞), intégrales (∫), sommes (∑), dérivées (f'), exponentielles (e^x), logarithmes (ln), racines (√), puissances, fractions, inéquations (≤, ≥), vecteurs (⃗AB), ensembles (ℝ, ℕ, ℤ, ∈), angles (mes(PM̂N)), ainsi que les formules et symboles de physique-chimie (P = m.g, Ec = 1/2 m.v^2, pH, [H3O+], moles, ions Cu2+, Fe3+, réactions chimiques ➔).
+- Ta sortie est UNIQUEMENT le sujet reconstruit (texte + éléments visuels intégrés), prêt à être lu et résolu par un enseignant ou un moteur de résolution : aucun commentaire méta, aucune mention de "voici la transcription", aucun titre de section.`;
+
 app.post("/api/ocr-scan", globalAiRateLimiter, aiRouteRateLimiter, async (req, res) => {
   try {
     const { imageBase64, mimeType = "image/jpeg", isHandwrittenScience = false } = req.body;
@@ -165,8 +229,8 @@ app.post("/api/ocr-scan", globalAiRateLimiter, aiRouteRateLimiter, async (req, r
         },
       },
       isHandwrittenScience
-        ? "Transcris avec la plus haute fidélité mathématique et scientifique le tracé manuscrit ou l'équation dessinée sur ce tableau. Reconnais parfaitement toutes les formes : infini (+∞, -∞), fonctions trigonométriques (cos, sin, tan), limites (lim x->+∞), intégrales (∫), sommes (∑), dérivées (f'), exponentielles (e^x), logarithmes (ln), racines (√), puissances, fractions, vecteurs (⃗AB), ensembles (ℝ, ℕ, ℤ, ∈), angles (mes(PM̂N)), ainsi que toutes les formules et symboles de physique-chimie (P = m.g, Ec = 1/2 m.v^2, pH, [H3O+], moles, ions Cu2+, Fe3+, réactions chimiques ➔). Donne directement la transcription sous forme de texte mathématique clair sans bavardage méta."
-        : "Transcris fidèlement et intégralement tout le texte présent sur cette image (sujet de devoir, énoncé d'exercice, consigne ou document, formules mathématiques et scientifiques). Ne rajoute aucun commentaire méta, donne uniquement le texte extrait et nettoyé.",
+        ? "Cette image montre un tableau ou une feuille avec un tracé manuscrit (équation, figure ou schéma). Applique les étapes 1 (analyse visuelle : toute figure, repère, vecteur ou schéma dessiné est une donnée) puis 2 (OCR intelligent de l'écriture manuscrite) puis 3 (fusion). Restitue le sujet reconstruit sous forme de texte mathématique et scientifique clair, avec les éléments visuels décrits entre crochets à leur place exacte, sans bavardage méta."
+        : "Cette image montre un sujet de devoir, un exercice ou une épreuve (texte + éventuels éléments graphiques). Applique les étapes 1 (analyse visuelle), 2 (OCR intelligent) puis 3 (fusion) et restitue le sujet complet reconstruit, en intégrant chaque élément visuel pertinent entre crochets à l'endroit du texte où il intervient, sans bavardage méta.",
     ];
 
     // L'OCR fonctionne avec N'IMPORTE QUEL fournisseur configuré (Gemini OU
@@ -185,7 +249,7 @@ app.post("/api/ocr-scan", globalAiRateLimiter, aiRouteRateLimiter, async (req, r
         {
           contents,
           config: {
-            systemInstruction: "Tu es un expert mondial en reconnaissance optique (OCR) et transcription d'équations mathématiques manuscrites et formules de physique-chimie (BEPC, BAC C/D/E, Supérieur). Tu convertis chaque symbole manuscrit (+∞, -∞, cos, sin, tan, lim, ln, exp, √, ∫, ∑, vecteurs, puissances, fractions, inéquations ≤ ≥, équations chimiques) en notation textuelle claire et exploitable.",
+            systemInstruction: IMAGE_ANALYSIS_SYSTEM_INSTRUCTION,
           },
         },
         { taskType: "ocr" }
@@ -345,11 +409,30 @@ app.post("/api/analyze-exercise", globalAiRateLimiter, aiRouteRateLimiter, async
       serie,
       serieLabel,
       level,
+      // Image d'origine (figure, schéma, tableau, photo de l'énoncé...) jointe par
+      // l'élève. Quand elle est présente, elle est envoyée TELLE QUELLE au modèle en
+      // plus du texte, pour qu'il "voie" directement la donnée visuelle au moment de
+      // résoudre — au lieu de se fier uniquement à une description texte qui peut
+      // perdre des détails. Elle n'est jamais écrite sur disque ni en base de
+      // données : elle ne vit que le temps de cette requête, puis elle est
+      // abandonnée (voir plus bas : mise en cache désactivée quand une image est
+      // fournie, pour ne pas non plus la garder en mémoire au-delà de l'appel).
+      imageBase64,
+      imageMimeType = "image/jpeg",
     } = req.body;
 
     if (!subjectTopic) {
       return res.status(400).json({ error: "Le sujet de l'exercice est requis." });
     }
+
+    const attachedImagePart = imageBase64
+      ? {
+          inlineData: {
+            mimeType: imageMimeType,
+            data: imageBase64.replace(/^data:image\/\w+;base64,/, ""),
+          },
+        }
+      : null;
 
     const isTwoAxes = planStructure !== "3_axes";
 
@@ -724,7 +807,7 @@ RÈGLE ABSOLUE DE FRANÇAIS SIMPLE ET FACILE À RETENIR (TOUTES MATIÈRES RÉDAC
 RÈGLE ABSOLUE D'EXACTITUDE UNIVERSELLE ET INTERDICTION DU HORS-SUJET (TOUTES MATIÈRES DU COLLÈGE AU BACCALAURÉAT) :
 
 1. TRAITEMENT STRICT ET DIRECT DE LA QUESTION POSÉE :
-   - En Philosophie : Interdiction de transformer un sujet sur la NATURE d'une notion (ex: « La philosophie est-elle un mythe ? ») en un sujet sur son USAGE (« La philosophie utilise-t-elle des mythes ? »). Analyse la notion en elle-même selon les doctrines exactes du programme (logos vs muthos, recherche ouverte vs dogme clos, démythologisation vs idéologie).
+   - En Philosophie : Interdiction de transformer un sujet sur la NATURE d'une notion (ex: « La philosophie est-elle un mythe ? ») en un sujet sur son USAGE (« La philosophie utilise-t-elle des mythes ? ») ou en une opposition non formulée par le sujet (ex: « La philosophie s'oppose-t-elle au mythe ? »). N'impose JAMAIS d'avance une grille de lecture toute faite (comme « logos vs muthos ») : un même terme (« mythe », « liberté », « nature »...) peut désigner selon le sujet une croyance, une illusion, une construction de l'esprit, une représentation collective, un récit fondateur, ou autre chose encore — détermine le sens réellement pertinent à partir de la formulation précise et complète de CE sujet, jamais par réflexe ou par habitude d'un sujet déjà traité.
    - En Français / Littérature : Interdiction d'injecter des thèmes préfabriqués (ex: déforestation, violence juvénile, réconciliation) si le sujet soumis traite d'un autre thème (ex: la poésie, le roman, le travail, la lecture, la liberté, la justice). Identifie toujours le VRAI thème et la VRAIE citation de l'énoncé.
    - En Histoire-Géographie & EDHC : Réponds strictement sur le pays, la période historique, le repère spatial ou le problème environnemental/économique précis de l'énoncé. Ne plaque JAMAIS de corrigé automatique sur un autre pays ou un autre siècle.
    - En Mathématiques, Physique-Chimie & SVT : Utilise STRICTEMENT les fonctions f(x), suites u_n, matrices, valeurs numériques et grandeurs physiques fournies dans l'énoncé. Ne remplace JAMAIS les données réelles par des données préétablies.
@@ -917,6 +1000,7 @@ ${UNIVERSAL_PEDAGOGICAL_FIDELITY_DIRECTIVE}
 ${CALCULATION_ACCURACY_DIRECTIVE}
 ${VERIFIED_CORRECTNESS_DIRECTIVE}
 ${SCIENTIFIC_STRUCTURED_OUTPUT_DIRECTIVE}
+${MATH_WRITING_NOTATION_DIRECTIVE}
 
 RÈGLE ABSOLUE DE FIDÉLITÉ À L'ÉNONCÉ (PRIORITAIRE SUR TOUT LE RESTE) :
 1. ANALYSER ET IDENTIFIER LA LISTE EXACTE DES QUESTIONS :
@@ -962,6 +1046,7 @@ ${UNIVERSAL_PEDAGOGICAL_FIDELITY_DIRECTIVE}
 ${CALCULATION_ACCURACY_DIRECTIVE}
 ${VERIFIED_CORRECTNESS_DIRECTIVE}
 ${SCIENTIFIC_STRUCTURED_OUTPUT_DIRECTIVE}
+${MATH_WRITING_NOTATION_DIRECTIVE}
 
 RÈGLE ABSOLUE DE FIDÉLITÉ À L'ÉNONCÉ (PRIORITAIRE SUR TOUT LE RESTE) :
 1. ANALYSER ET IDENTIFIER LA LISTE EXACTE DES QUESTIONS :
@@ -1033,6 +1118,7 @@ ${MATH_MASTER_PROMPT_DIRECTIVE}
 ${CALCULATION_ACCURACY_DIRECTIVE}
 ${VERIFIED_CORRECTNESS_DIRECTIVE}
 ${SCIENTIFIC_STRUCTURED_OUTPUT_DIRECTIVE}
+${MATH_WRITING_NOTATION_DIRECTIVE}
 
 RÈGLE ABSOLUE DE FIDÉLITÉ À L'ÉNONCÉ ET STRUCTURE VISUELLE (PRIORITAIRE SUR TOUT LE RESTE) :
 1. ANALYSER ET IDENTIFIER LA LISTE EXACTE DES EXERCICES ET QUESTIONS :
@@ -1260,10 +1346,22 @@ Objectif : ${mode}
     5. AVANT TOUTE CHOSE, remplis le champ conceptualDisambiguation : identifie le(s) terme(s) potentiellement ambigu(s) du sujet, les sens envisagés, le sens retenu pour CE sujet précis et la justification de ce choix (voir règle de désambiguïsation sémantique ci-dessus). Le sens retenu doit être celui effectivement utilisé dans toute la suite de la rédaction.`;
     }
 
+    // Quand une image (figure, schéma, tableau, photo de l'énoncé...) est jointe,
+    // on la fait circuler JUSQU'À la résolution au lieu de se limiter à une
+    // description texte produite en amont : le modèle reçoit l'image et le texte
+    // dans le même appel, exactement comme un enseignant qui a la copie sous les
+    // yeux en même temps qu'il lit l'énoncé.
+    const contents = attachedImagePart
+      ? [
+          attachedImagePart,
+          `${prompt}\n\nIMAGE JOINTE : l'image ci-dessus fait partie intégrante du sujet. Elle peut contenir une figure géométrique, un repère, un graphique, un tableau, un schéma (physique, chimie, SVT), une carte ou tout autre document. Utilise-la DIRECTEMENT comme source de données visuelles (mesures, angles, légendes, courbes, valeurs...), au même titre que le texte ci-dessus — y compris si certaines questions posées par l'élève ne portent pas explicitement sur un point du texte mais sur ce qui est représenté dans l'image. Si un détail de l'image est flou ou illisible, indique-le précisément au lieu de l'inventer.`,
+        ]
+      : prompt;
+
     let rawJsonText = "";
     try {
       rawJsonText = await generateWithFallback({
-        contents: prompt,
+        contents,
         config: {
           systemInstruction,
           responseMimeType: "application/json",
@@ -1535,7 +1633,11 @@ Objectif : ${mode}
           : "french_philo",
         // Sûr à mettre en cache : la réponse ne dépend que du sujet/énoncé et
         // du fascicule fournis, jamais d'un historique de conversation privé.
-        cacheable: true,
+        // MAIS dès qu'une image est jointe, on désactive le cache : la clé de
+        // cache inclurait alors les octets de l'image, qui resteraient en
+        // mémoire du serveur jusqu'à expiration du TTL. Une image ne doit
+        // jamais être conservée au-delà de la requête qui la traite.
+        cacheable: !attachedImagePart,
         cacheTtlMs: 60 * 60_000,
       });
     } catch (genError: any) {
@@ -1678,6 +1780,7 @@ Tu ne dois JAMAIS inventer une donnée, une formule, un résultat ou une correct
 Évalue le devoir de l'élève sur 20 points selon les 7 critères suivants, adaptés à la discipline réelle du devoir :
 ${criteriaGuidance}
 ${CORRECTION_ROBUSTNESS_DIRECTIVE}
+${isScientific ? MATH_WRITING_NOTATION_DIRECTIVE : ""}
 
 Note Globale : Moyenne pondérée calculée sur 20.
 Base ton évaluation UNIQUEMENT sur le contenu réel de la copie soumise, jamais sur des suppositions génériques.
@@ -1805,7 +1908,8 @@ EXIGENCE ABSOLUE DE VÉRACITÉ ET D'EXACTITUDE :
 - Pour les citations (ex: philosophie, littérature) : donne le nom exact de l'auteur, le titre authentique de l'œuvre, la date ou le contexte et la citation exacte entre guillemets.
 - Pour les formules mathématiques/scientifiques : donne la formule exacte, les unités et conditions de validité.
 - Fournis une explication lumineuse, structurée, pas-à-pas avec des démonstrations et des exemples concrets intégralement résolus sans sauter d'étapes.
-- Identifie les pièges fréquents dans les examens et concours pour protéger l'élève des erreurs d'inattention ou de raisonnement.`;
+- Identifie les pièges fréquents dans les examens et concours pour protéger l'élève des erreurs d'inattention ou de raisonnement.
+${MATH_WRITING_NOTATION_DIRECTIVE}`;
 
     const prompt = `Recherche demandée par l'élève : "${query}"
 Discipline : ${discipline || "À détecter automatiquement à partir de la question"}
@@ -1941,11 +2045,8 @@ RÈGLE ABSOLUE : L'exactitude passe avant la rapidité. Ne fabrique jamais une s
 RÈGLES STRICTES DE MISE EN PAGE ET DE LISIBILITÉ :
 - INTERDICTION des symboles de titres Markdown comme "#", "##", "###", "####". Ne mets JAMAIS de "#" dans tes messages.
 - Pour structurer ta réponse : utilise des paragraphes bien aérés, du texte en **Gras** pour les mots ou concepts clés, des listes à puces avec des tirets "-" ou des numéros "1.", "2.", "3.".
-- FRACTIONS OBLIGATOIREMENT AU FORMAT \frac{numérateur}{dénominateur} (ex: \frac{3}{4}, \frac{x+1}{2}) — NE JAMAIS écrire une fraction mathématique à plat sur une seule ligne comme "3/4" ou "x/2", cela peut perdre un élève de collège (confusion avec une division ou une date). Cette notation \frac{}{} est automatiquement affichée sous forme de vraie fraction (numérateur au-dessus d'une barre, dénominateur en dessous) dans l'interface — utilise-la systématiquement pour CHAQUE fraction, y compris dans les calculs intermédiaires.
-- Pour les racines carrées, utilise \sqrt{contenu} (ex: \sqrt{2}, \sqrt{x+1}).
-- Pour les exposants, utilise ^{...} (ex: x^{2}, u_n^{2}) ; pour les indices, utilise _{...} (ex: u_{n+1}).
-- Si tu donnes des formules mathématiques ou des citations, écris-les clairement et lisiblement.
 - Sois direct, pédagogique, synthétique et facile à lire sur écran mobile et desktop.
+${MATH_WRITING_NOTATION_DIRECTIVE}
 
 Contexte du Référentiel/Fascicule : ${JSON.stringify(fasciculeContext || {})}
 Sujet ou Travail en cours : ${subjectContext || "Général"}`;
