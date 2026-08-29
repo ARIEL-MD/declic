@@ -595,7 +595,7 @@ export async function generateWithFallbackDetailed(
   params: GenerateParams,
   options: OrchestratorOptions = {}
 ): Promise<GenerateResult> {
-  const { taskType, cacheable = false, cacheTtlMs = 30 * 60_000, maxRetriesPerCandidate = 2 } = options;
+  const { taskType, cacheable = false, cacheTtlMs = 30 * 60_000, maxRetriesPerCandidate = 1 } = options;
 
   // --- Cache + single-flight (opt-in uniquement) ---------------------------
   let cacheKey: string | null = null;
@@ -625,7 +625,7 @@ export async function generateWithFallbackDetailed(
     const firstCandidateSignature = `${candidates[0].provider}:${candidates[0].model}`;
     let lastError: any = null;
 
-    for (const candidate of candidates) {
+    candidateLoop: for (const candidate of candidates) {
       const keys = getKeysForProvider(candidate.provider);
 
       for (let keyIndex = 0; keyIndex < keys.length; keyIndex++) {
@@ -681,7 +681,29 @@ export async function generateWithFallbackDetailed(
             if (classified.cooldown) {
               markCooldown(key, classified.kind);
             }
-            break; // passe au candidat suivant (clé suivante ou modèle suivant)
+
+            // Erreur propre au MODÈLE (surcharge, timeout réseau, modèle
+            // inexistant) plutôt qu'à la CLÉ (quota épuisé, clé invalide) :
+            // essayer les autres clés sur ce même modèle ne changerait rien
+            // (le modèle est indisponible pour tout le monde, pas juste pour
+            // cette clé). On saute directement au modèle suivant au lieu de
+            // perdre du temps à épuiser inutilement toutes les clés restantes.
+            const isModelWideIssue =
+              classified.kind === "unavailable" ||
+              classified.kind === "timeout" ||
+              classified.kind === "not_found";
+
+            if (isModelWideIssue) {
+              logAI("skipping remaining keys (model-wide issue)", {
+                provider: candidate.provider,
+                model: candidate.model,
+                taskType,
+                kind: classified.kind,
+              });
+              continue candidateLoop;
+            }
+
+            break; // passe à la clé suivante pour ce même modèle (quota/auth = spécifique à la clé)
           }
         }
 

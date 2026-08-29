@@ -211,6 +211,44 @@ test("TEST 10: usedFallback est true dès qu'un candidat secondaire répond", as
   assert.ok(!("apiKey" in result) && !("key" in result), "le résultat ne doit jamais contenir de credential");
 });
 
+// TEST 11 — Correction du bug observé en production : quand un modèle est
+// indisponible (503/timeout), ce n'est PAS un problème de clé — inutile
+// d'épuiser toutes les clés du même modèle avant de changer de modèle. Avec
+// 3 clés Gemini configurées, une erreur "unavailable" sur la 1ère doit
+// directement passer au modèle suivant, sans tester les clés 2 et 3 du
+// modèle en échec (elles échoueraient de la même façon, en pure perte de
+// temps pour l'élève qui attend sa correction).
+test("TEST 11: une erreur d'indisponibilité saute directement au modèle suivant sans épuiser les autres clés", async () => {
+  process.env.GEMINI_API_KEY_2 = "test-gemini-key-2";
+  process.env.GEMINI_API_KEY_3 = "test-gemini-key-3";
+
+  const seenCandidates: string[] = [];
+  __setTestCandidateCaller(async (candidate) => {
+    seenCandidates.push(`${candidate.provider}:${candidate.model}`);
+    // Le tout premier modèle Gemini tenté échoue systématiquement en 503,
+    // peu importe la clé utilisée (simulateur de vraie panne du modèle).
+    const firstModelTried = seenCandidates[0].split(":")[1];
+    if (candidate.provider === "gemini" && candidate.model === firstModelTried) {
+      throw makeErr(503, "UNAVAILABLE: the model is overloaded");
+    }
+    return "réponse d'un autre modèle";
+  });
+
+  const result = await generateWithFallback(
+    { contents: "exercice" },
+    { taskType: "math", maxRetriesPerCandidate: 0 }
+  );
+
+  assert.equal(result, "réponse d'un autre modèle");
+  const firstModel = seenCandidates[0];
+  const sameModelRetries = seenCandidates.filter((c) => c === firstModel).length;
+  assert.equal(
+    sameModelRetries,
+    1,
+    `le modèle en échec (${firstModel}) ne doit être tenté qu'UNE seule fois (pas une fois par clé) ; vu : ${seenCandidates.join(", ")}`
+  );
+});
+
 // Bonus — cooldown : un candidat en échec de quota est bien mis en pause et
 // ignoré par le prochain appel tant que le cooldown n'a pas expiré.
 test("un candidat en cooldown après un 429 est sauté lors de l'appel suivant", async () => {
